@@ -1,0 +1,10 @@
+#InteliJIdea
+/.idea
+
+/out
+/bin
+*.config
+*.number
+/lib
+/*.iml
+

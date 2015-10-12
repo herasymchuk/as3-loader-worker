@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="as3-smart vo build scripts" basedir="../" default="all">
+
+	<property name="BUILD_DIR" value="${basedir}/build"/>
+	<loadproperties srcFile="${BUILD_DIR}/build.config"/>
+	<buildnumber file="${BUILD_DIR}/pruduct.build.number"/>
+	
+	<property name="FLEX_HOME" value="${sdk.home}"/>
+	
+	<taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+	<taskdef resource="flexTasks.tasks">
+        <classpath>
+            <pathelement path="${sdk.home}/ant/lib/flexTasks.jar"/>
+            <fileset dir="${sdk.home}/lib">
+                <include name="**/*.jar"/>
+            </fileset>
+        </classpath>
+    </taskdef>
+	
+	<property name="SRC_DIR" value="${basedir}/src" />
+	<property name="OUT_DIR" value="${basedir}/bin"/>
+	<!--property name="version.number" value="${version}b${build.number}"/-->
+	<property name="version.number" value="${version}"/>
+
+	<property name="worker.class.name" value="FileDownloaderWorker" />
+	
+	<target name="all" depends="compile-lib" />
+	
+	<target name="compile-lib">
+		<antcall target="buildWorkers"/>
+		<antcall target="compile"/>
+		<antcall target="clear"/>
+	</target>
+
+	<target name="buildWorkers">
+		<property name="worker.output" value="${SRC_DIR}/com/trembit/loader/workers" />
+
+		<echo message="Compile file: ${worker.output}/${worker.class.name}.swf"/>
+
+		<mxmlc file="${worker.output}/${worker.class.name}.as"
+			   output="${worker.output}/${worker.class.name}.swf"
+			   static-link-runtime-shared-libraries="true"
+			   failonerror="true"
+			   debug="true"
+			   maxmemory="1024m">
+			<load-config filename="${sdk.home}/frameworks/airmobile-config.xml" />
+			<source-path path-element="${SRC_DIR}"/>
+			<source-path path-element="${FLEX_HOME}/frameworks"/>
+		</mxmlc>
+
+		<delete>
+			<fileset dir="${worker.output}">
+				<include name="*"/>
+				<exclude name="*.swf"/>
+				<exclude name="**/*.as"/>
+			</fileset>
+		</delete>
+
+	</target>
+
+	<target name="compile" description="Build SWC library">
+		<property name="COMPILER_OUTPUT_PATH" value=""/>
+	
+		<fileset dir="${SRC_DIR}" casesensitive="yes" id="classfiles">
+			<include name="**/*.as"/>
+			<exclude name="**/${worker.class.name}.as"/>
+		</fileset>
+
+		<pathconvert property="classlist" refid="classfiles" pathsep=" " dirsep=".">
+			<regexpmapper from=".*src.(.*)\.as" to="\1"/>
+		</pathconvert>
+		
+		<compc compiler.as3="true" output="${OUT_DIR}/${name}-${version.number}.swc"
+			include-classes="${classlist}"
+			incremental="true" 
+			fork="true" 
+			maxmemory="512m" 
+			compiler.show-deprecation-warnings="true">
+			<load-config filename="${sdk.home}/frameworks/airmobile-config.xml" />
+			<source-path path-element="${SRC_DIR}" />
+		</compc>
+	</target>
+
+	<target name="clear">
+		<delete>
+			<fileset dir="${OUT_DIR}">
+				<include name="*"/>
+				<exclude name="*.swc"/>
+			</fileset>
+		</delete>
+	</target>
+
+
+	
+</project>
