@@ -5,6 +5,8 @@ import flash.events.Event;
 import flash.events.IOErrorEvent;
 import flash.events.ProgressEvent;
 import flash.net.URLRequest;
+import flash.net.URLRequestHeader;
+import flash.net.URLRequestMethod;
 import flash.net.URLStream;
 import flash.utils.ByteArray;
 
@@ -17,19 +19,43 @@ public class BytesDownloader extends QueueLoaderWithAvailabilityChecking impleme
         super();
     }
 
-    override protected function loadItemInternal(url:String):void {
-        super.loadItemInternal(url);
-        if (!stream || !stream.connected) {
-            //currentPosition = 0;
-            //downloadCompleteFlag = false;
-            stream = new URLStream();
-            remoteItemPath = url;
-            var requester:URLRequest = new URLRequest(url);
-            addEventListeners();
-            stream.load(requester);
-            trace("Start to load remote item: ", url);
-        }
-    }
+	protected var currentBytesPosition:uint = 0;
+	protected var isPaused:Boolean = false;
+
+	protected var bytesLoaded:ByteArray = new ByteArray();
+
+	override protected function loadItemInternal(url:String):void {
+		super.loadItemInternal(url);
+		if (!stream || !stream.connected) {
+			bytesLoaded = new ByteArray();
+			currentBytesPosition = 0;
+			//downloadCompleteFlag = false;
+			stream = new URLStream();
+			remoteItemPath = url;
+			var requester:URLRequest = new URLRequest(url);
+			addEventListeners();
+			stream.load(requester);
+			trace("Start to load remote item: ", url);
+		}
+	}
+
+	public function pause():void {
+		isPaused = true;
+	}
+
+	public function resume():void {
+		resumeLoad(remoteItemPath);
+	}
+
+	protected function resumeLoad(url:String):void {
+		trace("ResumeLoad");
+		isPaused = false;
+		trace("currentBytesPosition", currentBytesPosition);
+		var requestHeader:URLRequestHeader = new URLRequestHeader("Range","bytes=" + currentBytesPosition + "-");
+		var requester:URLRequest = new URLRequest(url);
+		requester.requestHeaders = [requestHeader];
+		stream.load(requester);
+	}
 
     private function addEventListeners():void {
         if (stream) {
@@ -41,6 +67,7 @@ public class BytesDownloader extends QueueLoaderWithAvailabilityChecking impleme
 
     override public function cleanUp():void {
         super.cleanUp();
+		trace("cleanUp");
 		if (stream) {
 			try {
 				stream.close();
@@ -58,16 +85,23 @@ public class BytesDownloader extends QueueLoaderWithAvailabilityChecking impleme
     }
 
     private function onStreamProgress(e:ProgressEvent):void {
-        progress.dispatch(remoteItemPath, e.bytesLoaded / e.bytesTotal * 100);
+        progress.dispatch(remoteItemPath, (e.bytesLoaded + currentBytesPosition) / e.bytesTotal * 100);
+		if (isPaused){
+			trace("stream.close");
+			stream.readBytes(bytesLoaded, currentBytesPosition);
+			currentBytesPosition += e.bytesLoaded;
+			trace("currentBytesPosition", currentBytesPosition);
+			stream.close();
+		}
     }
 
     private function onStreamComplete(e:Event):void {
-        var bytes:ByteArray = new ByteArray();
-        stream.readBytes(bytes);
+		trace("onStreamComplete");
+		stream.readBytes(bytesLoaded, currentBytesPosition);
 
 		cleanUp();
-
-		onCompleteLoadItem(remoteItemPath, bytes);
+		trace("currentBytesPosition:", currentBytesPosition);
+		onCompleteLoadItem(remoteItemPath, bytesLoaded);
     }
 
     override protected function onErrorLoadItem(e:IOErrorEvent):void {

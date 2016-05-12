@@ -23,5 +23,9 @@ public interface IDownloader {
 
     function get progress():ISignal;
 
+	function pause():void;
+
+	function resume():void;
+
 }
 }

@@ -1,6 +1,5 @@
 package com.trembit.loader {
 import flash.events.IOErrorEvent;
-import flash.utils.ByteArray;
 
 import org.osflash.signals.ISignal;
 import org.osflash.signals.Signal;
