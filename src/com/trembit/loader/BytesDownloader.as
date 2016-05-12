@@ -6,7 +6,6 @@ import flash.events.IOErrorEvent;
 import flash.events.ProgressEvent;
 import flash.net.URLRequest;
 import flash.net.URLRequestHeader;
-import flash.net.URLRequestMethod;
 import flash.net.URLStream;
 import flash.utils.ByteArray;
 
@@ -48,13 +47,13 @@ public class BytesDownloader extends QueueLoaderWithAvailabilityChecking impleme
 	}
 
 	protected function resumeLoad(url:String):void {
-		trace("ResumeLoad");
-		isPaused = false;
-		trace("currentBytesPosition", currentBytesPosition);
-		var requestHeader:URLRequestHeader = new URLRequestHeader("Range","bytes=" + currentBytesPosition + "-");
-		var requester:URLRequest = new URLRequest(url);
-		requester.requestHeaders = [requestHeader];
-		stream.load(requester);
+		if (!stream || !stream.connected) {
+			isPaused = false;
+			var requestHeader:URLRequestHeader = new URLRequestHeader("Range","bytes=" + currentBytesPosition + "-");
+			var requester:URLRequest = new URLRequest(url);
+			requester.requestHeaders = [requestHeader];
+			stream.load(requester);
+		}
 	}
 
     private function addEventListeners():void {
@@ -67,7 +66,6 @@ public class BytesDownloader extends QueueLoaderWithAvailabilityChecking impleme
 
     override public function cleanUp():void {
         super.cleanUp();
-		trace("cleanUp");
 		if (stream) {
 			try {
 				stream.close();
@@ -87,20 +85,18 @@ public class BytesDownloader extends QueueLoaderWithAvailabilityChecking impleme
     private function onStreamProgress(e:ProgressEvent):void {
         progress.dispatch(remoteItemPath, (e.bytesLoaded + currentBytesPosition) / e.bytesTotal * 100);
 		if (isPaused){
-			trace("stream.close");
 			stream.readBytes(bytesLoaded, currentBytesPosition);
 			currentBytesPosition += e.bytesLoaded;
-			trace("currentBytesPosition", currentBytesPosition);
-			stream.close();
+			try {
+				stream.close();
+			} catch (e:IOError) {
+			}
 		}
     }
 
     private function onStreamComplete(e:Event):void {
-		trace("onStreamComplete");
 		stream.readBytes(bytesLoaded, currentBytesPosition);
-
 		cleanUp();
-		trace("currentBytesPosition:", currentBytesPosition);
 		onCompleteLoadItem(remoteItemPath, bytesLoaded);
     }
 
